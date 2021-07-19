@@ -1,0 +1,64 @@
+bm25 = BM25()
+bm25.fit(doc['TEXT_WITHOUT_STOPWORDS'])
+
+def retrieve_ranking(query, model, doc):
+  scores = model.search(query)
+  document_list = doc['ID'].tolist()
+  bm_rank = sorted(zip(document_list, scores), key = lambda tup:tup[1], reverse=True)
+  return bm_rank
+  
+
+### NEW CELL
+# Calculate normalized dcg (ndcg) at k using 
+# sklearn library: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.ndcg_score.html
+from sklearn.metrics import ndcg_score
+
+# the things you need is y_true and y_target
+# first one comes from qrels and second from document rankings
+# The inputs are numpy arrays
+# for (n_samples, n_labels) in the documentation, here n_labels = 1
+
+def scoring(query, qrels, model, doc_ids, i, k=4):
+  for query_id, q in query.items():
+    # queries is q_id, q
+    query_qrels = [qrel[1:] for qrel in qrels if qrel[0] == query_id] # get the right qrels
+    # query_qrels is q_id, d_id, judg
+    ranked_docs = [x[0] for x in query_qrels]
+  
+    true_ranking = sorted(query_qrels, key=lambda tup:tup[1], reverse=True) # y_true
+    # need to add retrieved documents that did not appear in the qrels
+    true_ranking += [(doc_id, 0) for doc_id in doc_ids if doc_id not in ranked_docs]
+
+    doc_ranking_dict = dict(retrieve_ranking(q, model, doc))
+    doc_ranking_sorted = [(x[0], doc_ranking_dict[x[0]]) for x in true_ranking] # y_score
+    # need to add retrieved documents that did not appear in the qrels
+    # doc_ranking_sorted = doc_ranking_sorted + [(k,v) for k,v in doc_ranking_dict.items() if k not in ranked_docs]
+
+    ndcg = ndcg_score(
+      np.array([[x[1] for x in true_ranking]]),
+      np.array([[x[1] for x in doc_ranking_sorted]]),
+      k)
+    
+    #print('retrieved for "{}" with NDCG@{} of {}'.format(query, k, ndcg))
+    #print('retrieved for "{}" with NDCG@{} of {}'.format(i, k, ndcg))
+    return ndcg
+
+
+### NEW CELL
+q_rel = query_relevance.drop('0', axis=1)
+q_rel = q_rel.to_numpy()
+q_rel_tup = list(map(tuple, q_rel))
+q_rel_tup
+
+ndcg_scores = []
+
+for i in range(1307):
+  i = i
+  q = {query['QUERY_ID'][i]: query['TEXT_WITHOUT_STOPWORDS'][i]}
+  temp = scoring(q, q_rel_tup, bm25, doc['ID'], i, 4)
+  ndcg_scores.append(temp)
+  
+def av(x):
+    return sum(x) / len(x)
+
+av(ndcg_scores)
