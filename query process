@@ -1,0 +1,15 @@
+from itertools import chain
+final_list = list(chain.from_iterable([[i.split('\t', 1)[0] for i in string.punctuation], stopwords_given_list]))
+
+def query_processing(example, final_list):
+  example = example.lower()
+  example = word_tokenize(example)
+  clear = []
+  for item in example:
+    if item not in final_list:
+      clear.append(item)
+  return clear
+
+q_ex = "My eyeballs are exploding and bleeding, feels like demons!!!"
+processed = query_processing(q_ex, final_list)
+processed
