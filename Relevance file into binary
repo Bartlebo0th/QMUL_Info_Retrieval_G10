@@ -1,0 +1,1 @@
+query_relevance['RELEVANCE_LEVEL'] = query_relevance['RELEVANCE_LEVEL'].apply(lambda x: 1.0 if (x == 2 or x == 3) else 0)
